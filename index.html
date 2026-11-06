@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NIKKE - Fortune Express Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Orbitron (Sci-fi) & Noto Sans KR -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+    /* 글래스모피즘 효과 */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    }
+    .glass-input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+      outline: none;
+    }
+    /* 스크롤바 커스텀 */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
+    /* 눈 내리는 애니메이션 효과 */
+    #snow-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen relative text-white bg-slate-950">
+
+  <!-- 배경 이미지 레이어 -->
+  <div id="bg-layer" class="absolute inset-0 bg-cover bg-center transition-all duration-700 ease-in-out z-0" style="background-image: url('https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?q=80&w=2076&auto=format&fit=crop');">
+    <!-- 가시성을 확보하기 위한 부드러운 어두운 그라데이션 오버레이 -->
+    <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-black/40"></div>
+  </div>
+
+  <!-- 눈 내리는 캔버스 -->
+  <canvas id="snow-canvas"></canvas>
+
+  <!-- 메인 UI 레이아웃 컨테이너 -->
+  <div class="relative w-full h-full p-8 flex flex-col justify-between z-10 select-none">
+    
+    <!-- 상단 영역 -->
+    <div class="flex justify-between items-start w-full">
+      
+      <!-- [왼쪽 상단] 공부 타이머 (Study Timer) -->
+      <div class="glass-panel rounded-2xl p-6 w-96 flex flex-col space-y-4">
+        <div class="flex justify-between items-center border-b border-white/10 pb-2">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="timer" class="w-5 h-5 text-yellow-300"></i>
+            <span class="font-bold tracking-wider text-sm text-yellow-100">FORTUNE EXPRESS TIMER</span>
+          </div>
+          <!-- 모드 전환 -->
+          <div class="flex bg-white/10 rounded-lg p-0.5 text-xs">
+            <button id="mode-pomodoro" class="px-3 py-1 rounded-md bg-white/20 font-medium transition" onclick="setTimerMode('pomodoro')">뽀모도로</button>
+            <button id="mode-stopwatch" class="px-3 py-1 rounded-md text-white/60 hover:text-white transition" onclick="setTimerMode('stopwatch')">스톱워치</button>
+          </div>
+        </div>
+
+        <!-- 타이머 디스플레이 -->
+        <div class="text-center py-4">
+          <div id="timer-display" class="font-orbitron text-5xl font-bold tracking-widest text-shadow-lg text-white">25:00</div>
+          <div id="timer-status" class="text-xs text-white/60 mt-1">블랑과 함께 집중할 시간!</div>
+        </div>
+
+        <!-- 타이머 컨트롤 버튼 -->
+        <div class="grid grid-cols-3 gap-2">
+          <button id="btn-timer-start" class="py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-medium flex items-center justify-center space-x-1.5 transition active:scale-95" onclick="toggleTimer()">
+            <i data-lucide="play" class="w-4 h-4 fill-current" id="play-icon"></i>
+            <span id="play-text">시작</span>
+          </button>
+          <button class="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 hover:text-white font-medium flex items-center justify-center space-x-1.5 transition active:scale-95" onclick="resetTimer()">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            <span>리셋</span>
+          </button>
+          <!-- 커스텀 시간 지정 (뽀모도로용) -->
+          <button id="btn-timer-setting" class="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 hover:text-white font-medium flex items-center justify-center space-x-1.5 transition active:scale-95" onclick="openTimerSettings()">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+            <span>설정</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- [오른쪽 상단] 현재 시간 & 날짜 (Clock) -->
+      <div class="glass-panel rounded-2xl p-6 text-right min-w-[280px]">
+        <div id="current-date" class="text-sm font-medium text-white/80 tracking-wider mb-1">2026. 07. 10. 금요일</div>
+        <div id="current-time" class="font-orbitron text-5xl font-black tracking-widest text-white drop-shadow-md">14:58:24</div>
+        <div class="flex items-center justify-end space-x-1.5 mt-2 text-xs text-yellow-300">
+          <span class="inline-block w-1.5 h-1.5 bg-yellow-300 rounded-full animate-ping"></span>
+          <span>SYSTEM ONLINE</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 중앙 영역 (원래 이미지 업로더 및 가이드 배치) -->
+    <div class="flex flex-col items-center justify-center flex-grow opacity-0 hover:opacity-100 transition-opacity duration-500 py-10">
+      <div class="glass-panel p-6 rounded-2xl text-center max-w-sm border border-dashed border-white/30">
+        <i data-lucide="image" class="w-8 h-8 mx-auto mb-2 text-white/60"></i>
+        <h3 class="text-sm font-bold mb-1">블랑 일러스트 등록하기</h3>
+        <p class="text-xs text-white/60 leading-relaxed mb-4">
+          여기에 <b>블랑-포츈 익스프레스 이미지 파일</b>을 <br> 드래그하여 놓거나 아래 버튼을 클릭해 선택하세요.
+        </p>
+        <label class="cursor-pointer bg-white/20 hover:bg-white/30 text-xs font-semibold px-4 py-2 rounded-lg transition inline-block">
+          파일 선택
+          <input type="file" id="bg-uploader" class="hidden" accept="image/*" onchange="handleBgUpload(event)">
+        </label>
+      </div>
+    </div>
+
+    <!-- 하단 영역 -->
+    <div class="flex justify-between items-end w-full">
+      
+      <!-- [왼쪽 하단] 투두 리스트 (To-Do List) -->
+      <div class="glass-panel rounded-2xl p-6 w-[420px] max-h-[320px] flex flex-col">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="check-square" class="w-5 h-5 text-yellow-300"></i>
+            <span class="font-bold tracking-wider text-sm text-yellow-100">FORTUNE MISSION</span>
+          </div>
+          <span id="todo-count" class="text-xs bg-white/15 px-2 py-0.5 rounded-full text-white/80">0개 남음</span>
+        </div>
+
+        <!-- 할 일 입력란 -->
+        <div class="flex space-x-2 mb-3">
+          <input type="text" id="todo-input" placeholder="오늘 완수할 미션을 입력하세요..." class="flex-grow glass-input rounded-xl px-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none" onkeypress="if(event.key === 'Enter') addTodo()">
+          <button onclick="addTodo()" class="bg-white/25 hover:bg-white/35 active:scale-95 transition text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- 할 일 목록 영역 (스크롤 가능) -->
+        <div id="todo-list" class="flex-grow overflow-y-auto space-y-2 pr-1 max-h-[160px]">
+          <!-- 할 일 항목들이 동적으로 생성됩니다. -->
+        </div>
+      </div>
+
+      <!-- [오른쪽 하단] NIKKE 브랜드 로고 -->
+      <div class="text-right flex flex-col items-end pr-4">
+        <!-- 니케 특유의 타이포그래피 스타일 구현 -->
+        <div class="relative tracking-[0.25em] font-orbitron font-black text-6xl text-transparent bg-clip-text bg-gradient-to-r from-zinc-100 via-white to-zinc-400 drop-shadow-[0_4px_12px_rgba(255,255,255,0.15)] leading-none select-none">
+          NIKKE
+        </div>
+        <div class="text-[9px] tracking-[0.55em] font-orbitron text-yellow-300 font-bold uppercase mt-2.5 opacity-90">
+          Goddess of Victory
+        </div>
+        <div class="text-[8px] tracking-[0.1em] text-white/40 font-mono mt-1">
+          OPERATOR ACCESS // BLANC PORTUNE_EXPRESS
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- 시간 변경 모달 설정 (숨김 상태) -->
+  <div id="settings-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
+    <div class="glass-panel p-6 rounded-2xl w-80 text-white">
+      <h3 class="text-base font-bold mb-4 flex items-center space-x-2">
+        <i data-lucide="timer" class="text-yellow-300"></i>
+        <span>타이머 시간 변경</span>
+      </h3>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs text-white/60 block mb-1">집중 시간 (분)</label>
+          <input type="number" id="input-pomo-time" value="25" min="1" max="180" class="w-full glass-input rounded-xl px-4 py-2 text-white focus:outline-none">
+        </div>
+        <div class="flex space-x-2 pt-2">
+          <button onclick="closeTimerSettings()" class="flex-1 py-2 bg-white/10 hover:bg-white/15 rounded-xl text-sm transition">취소</button>
+          <button onclick="applyTimerSettings()" class="flex-1 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-bold rounded-xl text-sm transition">적용</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. 전역 변수 및 상태 관리 ---
+    let timerMode = 'pomodoro'; // 'pomodoro' 또는 'stopwatch'
+    let timerState = 'paused';  // 'running' 또는 'paused'
+    let timerDuration = 25 * 60; // 초 단위 기본 집중 시간 (25분)
+    let timerSecondsLeft = 25 * 60;
+    let stopwatchSeconds = 0;
+    let timerInterval = null;
+
+    let todos = [];
+
+    // --- 2. 초기 로드 및 설정 ---
+    window.onload = function() {
+      // 아이콘 로드
+      lucide.createIcons();
+
+      // 저장된 배경화면 로드
+      const savedBg = localStorage.getItem('nikke_dashboard_bg');
+      if (savedBg) {
+        document.getElementById('bg-layer').style.backgroundImage = `url('${savedBg}')`;
+      } else {
+        // 기본 이미지 안내 문구 강조
+        console.log("No saved background found. Please upload your custom NIKKE illustration!");
+      }
+
+      // 저장된 할 일 로드
+      const savedTodos = localStorage.getItem('nikke_dashboard_todos');
+      if (savedTodos) {
+        todos = JSON.parse(savedTodos);
+        renderTodos();
+      }
+
+      // 시계 작동 시작
+      startClock();
+
+      // 드래그 앤 드롭 파일 탐지기 설정
+      initDragAndDrop();
+
+      // 눈 내리는 효과 시작
+      startSnowEffect();
+    };
+
+    // --- 3. 실시간 시계 기능 ---
+    function startClock() {
+      const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+      function update() {
+        const now = new Date();
+        
+        // 날짜 변환
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const date = String(now.getDate()).padStart(2, '0');
+        const dayOfWeek = days[now.getDay()];
+        document.getElementById('current-date').textContent = `${year}. ${month}. ${date}. ${dayOfWeek}`;
+
+        // 시간 변환
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+      }
+      update();
+      setInterval(update, 1000);
+    }
+
+    // --- 4. 드래그 앤 드롭 및 파일 선택 배경화면 설정 ---
+    function initDragAndDrop() {
+      const dropZone = document.body;
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+          processBgImage(files[0]);
+        }
+      });
+    }
+
+    function handleBgUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        processBgImage(file);
+      }
+    }
+
+    function processBgImage(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('이미지 파일만 배경화면으로 지정할 수 있습니다.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const base64Img = e.target.result;
+        // 배경화면 업데이트
+        document.getElementById('bg-layer').style.backgroundImage = `url('${base64Img}')`;
+        
+        // 브라우저 캐시에 저장하여 새로고침 시에도 유지 (주의: 너무 큰 해상도의 경우 로컬 스토리지가 꽉 찰 수 있으므로 예외처리)
+        try {
+          localStorage.setItem('nikke_dashboard_bg', base64Img);
+        } catch (error) {
+          console.warn('이미지 용량이 로컬 스토리지 한도를 초과하여 자동 저장은 생략되었습니다. 매 세션 업로드가 필요할 수 있습니다.');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // --- 5. 타이머 코어 기능 ---
+    function setTimerMode(mode) {
+      if (timerState === 'running') {
+        toggleTimer(); // 구동 중이면 우선 일시정지
+      }
+      
+      timerMode = mode;
+      
+      const pBtn = document.getElementById('mode-pomodoro');
+      const sBtn = document.getElementById('mode-stopwatch');
+      const setBtn = document.getElementById('btn-timer-setting');
+
+      if (mode === 'pomodoro') {
+        pBtn.className = "px-3 py-1 rounded-md bg-white/20 font-medium transition text-white";
+        sBtn.className = "px-3 py-1 rounded-md text-white/60 hover:text-white transition";
+        setBtn.style.display = 'flex';
+        resetTimer();
+      } else {
+        sBtn.className = "px-3 py-1 rounded-md bg-white/20 font-medium transition text-white";
+        pBtn.className = "px-3 py-1 rounded-md text-white/60 hover:text-white transition";
+        setBtn.style.display = 'none';
+        resetTimer();
+      }
+    }
+
+    function updateTimerDisplay() {
+      const display = document.getElementById('timer-display');
+      if (timerMode === 'pomodoro') {
+        const mins = String(Math.floor(timerSecondsLeft / 60)).padStart(2, '0');
+        const secs = String(timerSecondsLeft % 60).padStart(2, '0');
+        display.textContent = `${mins}:${secs}`;
+      } else {
+        const mins = String(Math.floor(stopwatchSeconds / 60)).padStart(2, '0');
+        const secs = String(stopwatchSeconds % 60).padStart(2, '0');
+        display.textContent = `${mins}:${secs}`;
+      }
+    }
+
+    function toggleTimer() {
+      const playIcon = document.getElementById('play-icon');
+      const playText = document.getElementById('play-text');
+      const statusText = document.getElementById('timer-status');
+
+      if (timerState === 'paused') {
+        timerState = 'running';
+        playText.textContent = "일시정지";
+        playIcon.setAttribute('data-lucide', 'pause');
+        lucide.createIcons();
+        statusText.textContent = timerMode === 'pomodoro' ? "블랑과 함께 집중하는 중!" : "스톱워치 기록 중...";
+
+        timerInterval = setInterval(() => {
+          if (timerMode === 'pomodoro') {
+            if (timerSecondsLeft > 0) {
+              timerSecondsLeft--;
+              updateTimerDisplay();
+            } else {
+              // 뽀모도로 타이머 완료 시
+              clearInterval(timerInterval);
+              timerState = 'paused';
+              playText.textContent = "시작";
+              playIcon.setAttribute('data-lucide', 'play');
+              lucide.createIcons();
+              statusText.textContent = "집중 완료! 한 판 쉬어가요! 🍀";
+              // 알림 사운드 또는 알림창 (브라우저 기본 alert 대신 커스텀 무반응 처리)
+            }
+          } else {
+            stopwatchSeconds++;
+            updateTimerDisplay();
+          }
+        }, 1000);
+      } else {
+        timerState = 'paused';
+        playText.textContent = "시작";
+        playIcon.setAttribute('data-lucide', 'play');
+        lucide.createIcons();
+        statusText.textContent = "잠시 한숨 돌리는 중...";
+        clearInterval(timerInterval);
+      }
+    }
+
+    function resetTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+      timerState = 'paused';
+      
+      const playIcon = document.getElementById('play-icon');
+      const playText = document.getElementById('play-text');
+      const statusText = document.getElementById('timer-status');
+
+      playText.textContent = "시작";
+      playIcon.setAttribute('data-lucide', 'play');
+      lucide.createIcons();
+
+      if (timerMode === 'pomodoro') {
+        timerSecondsLeft = timerDuration;
+        statusText.textContent = "블랑과 함께 집중할 시간!";
+      } else {
+        stopwatchSeconds = 0;
+        statusText.textContent = "스톱워치가 리셋되었습니다.";
+      }
+      updateTimerDisplay();
+    }
+
+    // 뽀모도로 환경 설정 모달 제어
+    function openTimerSettings() {
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeTimerSettings() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function applyTimerSettings() {
+      const minutesInput = document.getElementById('input-pomo-time').value;
+      if (minutesInput && minutesInput > 0) {
+        timerDuration = minutesInput * 60;
+        closeTimerSettings();
+        resetTimer();
+      }
+    }
+
+    // --- 6. 투두 리스트 (To-Do List) 구현 ---
+    function addTodo() {
+      const input = document.getElementById('todo-input');
+      const text = input.value.trim();
+      
+      if (text === '') return;
+
+      const newTodo = {
+        id: Date.now(),
+        text: text,
+        completed: false
+      };
+
+      todos.push(newTodo);
+      input.value = '';
+      saveTodos();
+      renderTodos();
+    }
+
+    function toggleTodo(id) {
+      todos = todos.map(todo => {
+        if (todo.id === id) {
+          return { ...todo, completed: !todo.completed };
+        }
+        return todo;
+      });
+      saveTodos();
+      renderTodos();
+    }
+
+    function deleteTodo(id) {
+      todos = todos.filter(todo => todo.id !== id);
+      saveTodos();
+      renderTodos();
+    }
+
+    function saveTodos() {
+      localStorage.setItem('nikke_dashboard_todos', JSON.stringify(todos));
+    }
+
+    function renderTodos() {
+      const listContainer = document.getElementById('todo-list');
+      const countLabel = document.getElementById('todo-count');
+      listContainer.innerHTML = '';
+
+      const pendingTodos = todos.filter(t => !t.completed).length;
+      countLabel.textContent = `${pendingTodos}개 남음`;
+
+      todos.forEach(todo => {
+        const item = document.createElement('div');
+        item.className = `flex items-center justify-between p-3 rounded-xl transition-all duration-300 ${todo.completed ? 'bg-white/5 opacity-60' : 'bg-white/10 hover:bg-white/15'}`;
+        
+        item.innerHTML = `
+          <div class="flex items-center space-x-3 flex-grow cursor-pointer" onclick="toggleTodo(${todo.id})">
+            <div class="w-5 h-5 rounded-md border flex items-center justify-center transition-all ${todo.completed ? 'bg-yellow-400 border-yellow-400' : 'border-white/30 bg-black/10'}">
+              ${todo.completed ? '<i data-lucide="check" class="w-3.5 h-3.5 text-black stroke-[3]"></i>' : ''}
+            </div>
+            <span class="text-sm font-medium ${todo.completed ? 'line-through text-white/40' : 'text-white'}">${escapeHtml(todo.text)}</span>
+          </div>
+          <button onclick="deleteTodo(${todo.id})" class="text-white/40 hover:text-red-400 transition ml-2">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        `;
+        listContainer.appendChild(item);
+      });
+
+      lucide.createIcons();
+    }
+
+    // HTML 이스케이프 함수 (보안용)
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // --- 7. 설원 분위기를 살려줄 눈 내리는 애니메이션 효과 ---
+    function startSnowEffect() {
+      const canvas = document.getElementById('snow-canvas');
+      const ctx = canvas.getContext('2d');
+      let animationFrameId;
+
+      let width = canvas.width = window.innerWidth;
+      let height = canvas.height = window.innerHeight;
+
+      // 화면 리사이즈 대응
+      window.addEventListener('resize', function() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const numFlakes = 85;
+      const flakes = [];
+
+      for (let i = 0; i < numFlakes; i++) {
+        flakes.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          r: Math.random() * 3 + 1, // 눈송이 크기
+          d: Math.random() * numFlakes, // 밀도
+          speedY: Math.random() * 1.2 + 0.4, // 떨어지는 속도
+          speedX: Math.random() * 0.5 - 0.25 // 부유 흔들림
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.beginPath();
+        for (let i = 0; i < numFlakes; i++) {
+          const f = flakes[i];
+          ctx.moveTo(f.x, f.y);
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+        }
+        ctx.fill();
+        updateSnow();
+        animationFrameId = requestAnimationFrame(draw);
+      }
+
+      function updateSnow() {
+        for (let i = 0; i < numFlakes; i++) {
+          const f = flakes[i];
+          f.y += f.speedY;
+          f.x += f.speedX;
+
+          // 바닥에 도달하거나 옆으로 나가면 위에서 재생성
+          if (f.y > height) {
+            flakes[i] = {
+              x: Math.random() * width,
+              y: -10,
+              r: f.r,
+              d: f.d,
+              speedY: f.speedY,
+              speedX: f.speedX
+            };
+          }
+          if (f.x > width) {
+            f.x = 0;
+          } else if (f.x < 0) {
+            f.x = width;
+          }
+        }
+      }
+
+      draw();
+    }
+  </script>
+</body>
+</html>
